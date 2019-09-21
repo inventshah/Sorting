@@ -40,6 +40,8 @@ class Sorter
 		this.hold = (i) => onHold(i);
 		this.setArray = (arr)=> setArray(arr);
 		this.multipleIndex = (arr)=>rangeIndex(arr);
+
+		this.canSort = true;
 	}
 
 	delay(ms){
@@ -58,65 +60,74 @@ class Sorter
 	}
 
 	async bubble(arr){
-		var swapped = true;
-		while (swapped){
-			swapped = false;
-			for (let i = 0; i < arr.length; i++){
-				this.onIndex(i);
-				if (i == arr.length){
-					break;
+		if (this.canSort){
+			this.canSort = false;
+			var swapped = true;
+			while (swapped){
+				swapped = false;
+				for (let i = 0; i < arr.length; i++){
+					this.onIndex(i);
+					if (i == arr.length){
+						break;
+					}
+					if (arr[i] > arr[i+1]){
+						this.swap(arr, i);
+						swapped = true;
+					}
+					await this.delay(fps);
 				}
-				if (arr[i] > arr[i+1]){
-					this.swap(arr, i);
-					swapped = true;
-				}
-				await this.delay(fps);
 			}
+			this.onIndex(-1);
+			this.canSort = true;
 		}
-		this.onIndex(-1);
-		return arr;
 	}
 
 	async insertion(arr){
-		for (let i = 1; i < arr.length; i++){
-			for (let j = i; j >= 0; j--){
-				this.onIndex(j);
-				if (j == 0){
-					break;
+		if (this.canSort){
+			this.canSort = false;
+			for (let i = 1; i < arr.length; i++){
+				for (let j = i; j >= 0; j--){
+					this.onIndex(j);
+					if (j == 0){
+						break;
+					}
+					if (arr[j] < arr[j-1]){
+						this.swap(arr, j-1);
+					} else {
+						break;
+					}
+					await this.delay(fps);
 				}
-				if (arr[j] < arr[j-1]){
-					this.swap(arr, j-1);
-				} else {
-					break;
-				}
-				await this.delay(fps);
 			}
+			this.onIndex(-1);
+			this.canSort = true;
 		}
-		this.onIndex(-1);
-		return arr;
 	}
 
 	async selection(arr){
-		var min = arr[0];
-		var index = 0;
+		if (this.canSort){
+			this.canSort = false;
+			var min = arr[0];
+			var index = 0;
 
-		for (let i = 0; i < arr.length-1; i++){
-			for (let j = arr.length-1; j > i; j--){
-				this.onIndex(j);
-				this.hold(index);
-				if (min > arr[j]){
-					min = arr[j];
-					index = j;
+			for (let i = 0; i < arr.length-1; i++){
+				for (let j = arr.length-1; j > i; j--){
+					this.onIndex(j);
+					this.hold(index);
+					if (min > arr[j]){
+						min = arr[j];
+						index = j;
+					}
+					await this.delay(fps);
 				}
-				await this.delay(fps);
+				this.switch(arr, i, index);
+				index = i+1;
+				min = arr[i+1];
 			}
-			this.switch(arr, i, index);
-			index = i+1;
-			min = arr[i+1];
+			this.onIndex(-1);
+			this.hold(-1);
+			this.canSort = true;
 		}
-		this.onIndex(-1);
-		this.hold(-1);
-		return arr;
 	}
 
 	compress(arr){
@@ -139,31 +150,35 @@ class Sorter
 	}
 
 	async merge(arr){
-		var output = arr.map(num => [num]);
+		if (this.canSort){
+			this.canSort = false;
+			var output = arr.map(num => [num]);
 
-		while (output.length > 1) {
-			const isOdd = output.length % 2 !== 0;
-			var temp = [];
+			while (output.length > 1) {
+				const isOdd = output.length % 2 !== 0;
+				var temp = [];
 
-			for (let i = 0; i < output.length; i += 2) {
-				var left = output[i];
-				var right = output[i + 1];
-				if (isOdd && i === (output.length - 3)) {
-					right = this.mergeSort(right, output[i + 2]);
-					i++;
+				for (let i = 0; i < output.length; i += 2) {
+					var left = output[i];
+					var right = output[i + 1];
+					if (isOdd && i === (output.length - 3)) {
+						right = this.mergeSort(right, output[i + 2]);
+						i++;
+						this.multipleIndex(this.range(output[i].length, i*output[i].length));
+						await this.delay(fps);
+					}
+					temp.push(this.mergeSort(left, right));
 					this.multipleIndex(this.range(output[i].length, i*output[i].length));
 					await this.delay(fps);
+					this.getArray(temp, output);
 				}
-				temp.push(this.mergeSort(left, right));
-				this.multipleIndex(this.range(output[i].length, i*output[i].length));
-				await this.delay(fps);
-				this.getArray(temp, output);
+				output = temp;
 			}
-			output = temp;
+			this.setArray(this.compress(output));
+			
+			this.onIndex(-1);
+			this.canSort = true;
 		}
-		this.setArray(this.compress(output));
-		
-		this.onIndex(-1);
 	}
 
 	mergeSort(left, right){
@@ -203,48 +218,51 @@ class Sorter
 	}
 	
 	async quick(arr){
-		var l = 0;
-		var h = arr.length-1;
+		if (this.canSort){
+			this.canSort = false;
+			var l = 0;
+			var h = arr.length-1;
 
-		var size = h - l + 1;
-		var stack = Array(size).fill().map((num,i)=>0);
+			var size = h - l + 1;
+			var stack = Array(size).fill().map((num,i)=>0);
 
-		var top = -1;
+			var top = -1;
 
-		top++;
-		stack[top] = l;
-		top++;
-		stack[top] = h;
+			top++;
+			stack[top] = l;
+			top++;
+			stack[top] = h;
 
-		while (top >= 0){
-			h = stack[top];
-			top--;
-			l = stack[top];
-			top--;
+			while (top >= 0){
+				h = stack[top];
+				top--;
+				l = stack[top];
+				top--;
 
-			var p = this.partition(arr, l, h);
+				var p = this.partition(arr, l, h);
 
-			if (p-1 > l) {
-				top++;
-				stack[top] = l;
-				top++;
-				stack[top] = p - 1;
+				if (p-1 > l) {
+					top++;
+					stack[top] = l;
+					top++;
+					stack[top] = p - 1;
+				}
+
+				if (p+1 < h){
+					top++;
+					stack[top] = p + 1;
+					top++;
+					stack[top] = h;
+				}
+
+				this.multipleIndex([l, h]);
+				await this.delay(fps);
 			}
 
-			if (p+1 < h){
-				top++;
-				stack[top] = p + 1;
-				top++;
-				stack[top] = h;
-			}
+			this.onIndex(-1);
 
-			this.multipleIndex([l, h]);
-			await this.delay(fps);
+			this.canSort = true;
 		}
-
-		this.onIndex(-1);
-
-		return arr;
 	}
 }
 
